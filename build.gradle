@@ -1,0 +1,56 @@
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'gsl-starplane' version '0.1.0'
+}
+
+group 'de.geolykt'
+def archivesBaseName = 'ivyh'
+version '1.0.0-SNAPSHOT'
+
+targetCompatibility = compileJava.targetCompatibility = sourceCompatibility = compileJava.sourceCompatibility = '1.8'
+
+repositories {
+    mavenLocal()
+    maven {
+        name 'geolykt'
+        url 'https://geolykt.de/maven'
+    }
+    mavenCentral()
+}
+
+starplane {
+    withRAS(rootProject.file("src/main/resources/ivyh.ras"))
+}
+
+runMods {
+    from components["java"]
+}
+
+configurations {
+    dependencyMods
+    compileOnlyApi.extendsFrom(dependencyMods)
+    compileOnlyApi.extendsFrom(devRuntime)
+    compileOnlyApi.extendsFrom(galimulatorDependencies)
+}
+
+deployMods {
+    from configurations["dependencyMods"]
+}
+
+dependencies {
+    dependencyMods "de.geolykt:starloader-api:2.0.0-SNAPSHOT"
+    devRuntime "de.geolykt.starloader:launcher:4.0.0-20230527"
+    compileOnly "de.geolykt.starloader:micromixin-annotations:0.0.1-SNAPSHOT"
+    compileOnly "de.geolykt.starloader:starplane-annotations:1.0.0"
+    compileOnlyApi "org.jetbrains:annotations:24.0.1"
+}
+
+remapJar {
+    archiveClassifier = 'remapped'
+    fromJar jar
+}
+
+build {
+    dependsOn remapJar
+}

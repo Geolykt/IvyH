@@ -1,0 +1,6 @@
+RAS v1 std
+
+# We save wars ourselves
+!a	0	ACC_TRANSITIVE	snoddasmannen/galimulator/SpaceState	wars				Ljava/util/Vector;
+!a	0	ACC_PUBLIC		snoddasmannen/galimulator/War			<init>				(Lsnoddasmannen/galimulator/Empire;Lsnoddasmannen/galimulator/Empire;)V
+!a	0	ACC_PUBLIC		snoddasmannen/galimulator/Empire		peaceAgreements2	Ljava/util/ArrayList;
