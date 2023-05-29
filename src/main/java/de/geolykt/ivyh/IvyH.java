@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 
 import net.minestom.server.extras.selfmodification.MinestomRootClassLoader;
 
-import de.geolykt.ivyh.asm.WarASMTransformer;
+import de.geolykt.ivyh.asm.NativeAccessMigrator;
 import de.geolykt.ivyh.codec.IvyWarContainerState;
 import de.geolykt.ivyh.codec.WarCodec;
 import de.geolykt.starloader.api.NamespacedKey;
@@ -68,6 +68,6 @@ public class IvyH extends Extension {
     }
 
     static {
-        MinestomRootClassLoader.getInstance().addTransformer(new WarASMTransformer());
+        MinestomRootClassLoader.getInstance().addTransformer(new NativeAccessMigrator());
     }
 }

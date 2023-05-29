@@ -1,40 +1,31 @@
 package de.geolykt.ivyh.asm;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
+import java.util.Collection;
 
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.LoggerFactory;
 
-import de.geolykt.starloader.impl.GalimulatorImplementation;
+import de.geolykt.ivyh.IvyH;
+import de.geolykt.ivyh.IvyWar;
 
 public class WarCallbacks {
 
-    @Nullable
-    private static MethodHandle warCtorHandle;
-    private static boolean errorWarCtor = false;
-
-    @Nullable
-    public static final snoddasmannen.galimulator.War createInstance() {
-        if (WarCallbacks.errorWarCtor) {
-            return null;
-        }
-        MethodHandle mh = WarCallbacks.warCtorHandle;
-        if (mh == null) {
-            try {
-                mh = MethodHandles.publicLookup().findConstructor(snoddasmannen.galimulator.War.class, MethodType.methodType(void.class));
-            } catch (NoSuchMethodException | IllegalAccessException e) {
-                WarCallbacks.errorWarCtor = true;
-                GalimulatorImplementation.crash(e, "Unable to bypass the standard snoddasmannen/galimulator/War constructor. This indicates a mod incompatibility. Issue occured while obtaining the method handle.", false);
-                return null;
+    // Note: Called via ASM
+    public static final boolean isLoosingNoWars(de.geolykt.starloader.api.empire.@NotNull ActiveEmpire e) {
+        Collection<IvyWar> wars = IvyH.CONTAINER.getWars(e);
+        for (IvyWar war : wars) {
+            if (war.allAggressorsView.contains(e)) {
+                if (war.getAgressorScore() < 0) {
+                    return true;
+                }
+            } else if (war.allDefendersView.contains(e)) {
+                if (war.getAgressorScore() > 0) {
+                    return true;
+                }
+            } else {
+                LoggerFactory.getLogger(WarCallbacks.class).warn("Empire {} ({}) does not really participate in war {}.", e.getUID(), e.getEmpireName(), war.getDisplayName());
             }
-            warCtorHandle = mh;
         }
-        try {
-            return (snoddasmannen.galimulator.War) mh.invokeExact();
-        } catch (Throwable e) {
-            GalimulatorImplementation.crash(e, "Unable to bypass the standard snoddasmannen/galimulator/War constructor. This indicates a mod incompatibility. Issue occured while invoking the method handle.", false);
-            return null;
-        }
+        return false;
     }
 }

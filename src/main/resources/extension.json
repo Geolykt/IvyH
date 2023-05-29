@@ -4,5 +4,6 @@
   "version": "1.0.0-SNAPSHOT",
   "reversibleAccessSetter": "ivyh.ras",
   "mixinConfig": "ivyh-mixins.json",
-  "dependencies": [ "StarloaderAPI" ]
+  "dependencies": [ "StarloaderAPI" ],
+  "codeModifiers": [ "de.geolykt.ivyh.asm.NativeAccessNagger" ]
 }

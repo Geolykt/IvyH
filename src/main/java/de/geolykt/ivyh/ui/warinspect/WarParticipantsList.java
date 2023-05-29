@@ -15,6 +15,7 @@ import com.badlogic.gdx.utils.Align;
 
 import de.geolykt.ivyh.IvyUtil;
 import de.geolykt.starloader.api.NullUtils;
+import de.geolykt.starloader.api.empire.ActiveEmpire;
 import de.geolykt.starloader.api.empire.Empire;
 import de.geolykt.starloader.api.gui.AsyncRenderer;
 import de.geolykt.starloader.api.gui.Drawing;
@@ -25,19 +26,19 @@ public class WarParticipantsList implements CanvasContext {
 
     private int scroll;
     @NotNull
-    private final SortedSet<Empire> empires = new TreeSet<>((e1, e2) -> {
+    private final SortedSet<ActiveEmpire> empires = new TreeSet<>((e1, e2) -> {
         return e1.getEmpireName().compareTo(e2.getEmpireName());
     });
 
     @NotNull
-    private final Collection<Empire> view;
+    private final Collection<ActiveEmpire> view;
 
     private final int width;
     private final int height;
     @NotNull
     private final StringBuilder sharedBuilder = new StringBuilder();
 
-    public WarParticipantsList(int width, int height, @NotNull Collection<Empire> view) {
+    public WarParticipantsList(int width, int height, @NotNull Collection<ActiveEmpire> view) {
         this.width = width;
         this.height = height;
         this.view = view;
@@ -54,7 +55,7 @@ public class WarParticipantsList implements CanvasContext {
         AsyncRenderer.drawTexture(texture, this.width - 2, 0, 2, this.height, 0, NullUtils.requireNotNull(Color.BLACK), camera);
         AsyncRenderer.drawTexture(texture, 0, 0, this.width, 2, 0, NullUtils.requireNotNull(Color.BLACK), camera);
         AsyncRenderer.drawTexture(texture, 0, this.height - 2, this.width, 2, 0, NullUtils.requireNotNull(Color.BLACK), camera);
-        Iterator<Empire> it = this.empires.iterator();
+        Iterator<ActiveEmpire> it = this.empires.iterator();
         for (int i = 0; it.hasNext(); i++) {
             Empire e = it.next();
             int y = (i * -50) + this.scroll;

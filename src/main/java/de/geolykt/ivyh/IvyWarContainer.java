@@ -16,7 +16,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.LoggerFactory;
 
-import de.geolykt.ivyh.asm.WarCallbacks;
 import de.geolykt.ivyh.codec.IvyWarContainerState;
 import de.geolykt.ivyh.codec.IvyWarContainerState.WarState;
 import de.geolykt.ivyh.event.WarEmpireLeaveEvent;
@@ -24,7 +23,6 @@ import de.geolykt.ivyh.event.WarEndEvent;
 import de.geolykt.starloader.api.Galimulator;
 import de.geolykt.starloader.api.empire.ActiveEmpire;
 import de.geolykt.starloader.api.empire.Empire;
-import de.geolykt.starloader.api.empire.War;
 import de.geolykt.starloader.api.event.EventManager;
 
 import snoddasmannen.galimulator.Space;
@@ -32,7 +30,6 @@ import snoddasmannen.galimulator.Space;
 public class IvyWarContainer {
 
     private final Map<Integer, Set<@NotNull IvyWar>> wars = new ConcurrentHashMap<>();
-    private final Map<IvyWar, War> reverseLookup = new ConcurrentHashMap<>();
     private final NavigableSet<@NotNull IvyWar> allWars = new ConcurrentSkipListSet<>((w1, w2) -> {
         return Integer.compareUnsigned(w1.getStartYear(), w2.getStartYear());
     });
@@ -68,26 +65,11 @@ public class IvyWarContainer {
     public IvyWar createWar(@NotNull ActiveEmpire aggressor, @NotNull ActiveEmpire defender) {
         Set<@NotNull IvyWar> agressorWars = this.wars.computeIfAbsent(aggressor.getUID(), (ignore) -> ConcurrentHashMap.newKeySet());
         Set<@NotNull IvyWar> defenderWars = this.wars.computeIfAbsent(defender.getUID(), (ignore) -> ConcurrentHashMap.newKeySet());
-        snoddasmannen.galimulator.Empire a = (snoddasmannen.galimulator.Empire) aggressor;
-        snoddasmannen.galimulator.Empire b = (snoddasmannen.galimulator.Empire) defender;
-        snoddasmannen.galimulator.War war = new snoddasmannen.galimulator.War(a, b);
-        IvyWar ivyWar = ((IvyWarAccess) war).getWarHandler();
+        IvyWar ivyWar = new IvyWar(Galimulator.getGameYear(), aggressor, defender);
         agressorWars.add(ivyWar);
         defenderWars.add(ivyWar);
-        this.reverseLookup.put(ivyWar, (War) war);
-        this.addWarUnsafely((War) war);
         this.allWars.add(ivyWar);
         return ivyWar;
-    }
-
-    @SuppressWarnings("deprecation")
-    private void addWarUnsafely(@NotNull War war) {
-        Galimulator.getImplementation().getUnsafe().getWarsUnsafe().add(war);
-    }
-
-    @SuppressWarnings("deprecation")
-    private void clearWarsUnsafely() {
-        Galimulator.getImplementation().getUnsafe().getWarsUnsafe().clear();
     }
 
     @Nullable
@@ -111,7 +93,7 @@ public class IvyWarContainer {
         if (a.getAlliance() == null && b.getAlliance() == null) {
             return null;
         }
-        for (IvyWar war : this.reverseLookup.keySet()) {
+        for (IvyWar war : this.allWars) {
             if (this.couldJoinSide(war.allAggressorsView, a)) {
                 if (this.couldJoinSide(war.allDefendersView, b)) {
                     return war;
@@ -126,11 +108,8 @@ public class IvyWarContainer {
         return null;
     }
 
-    private boolean couldJoinSide(@NotNull Collection<Empire> participantsView, @NotNull ActiveEmpire empire) {
-        for (Empire participant : participantsView) {
-            if (!(participant instanceof ActiveEmpire)) {
-                continue;
-            }
+    private boolean couldJoinSide(@NotNull Collection<ActiveEmpire> participantsView, @NotNull ActiveEmpire empire) {
+        for (ActiveEmpire participant : participantsView) {
             if (participant == empire || ((ActiveEmpire) participant).getAlliance() == empire.getAlliance()) {
                 return true;
             }
@@ -138,7 +117,7 @@ public class IvyWarContainer {
         return false;
     }
 
-    public void leaveAllWars(@NotNull Empire empire, boolean silent) {
+    public void leaveAllWars(@NotNull ActiveEmpire empire, boolean silent) {
         Set<@NotNull IvyWar> wars = this.wars.get(empire.getUID());
         if (wars != null) {
             for (IvyWar war : wars) {
@@ -148,27 +127,22 @@ public class IvyWarContainer {
     }
 
     private boolean handEmpireLeaveEvent(@NotNull Empire empire, @NotNull IvyWar war, boolean endWar) {
-        War slWar = this.reverseLookup.get(war);
-        if (slWar == null) {
-            throw new IllegalStateException("No SLAPI `War` instance registered for IvyH `IvyWar` instance " + war);
-        }
         WarEmpireLeaveEvent evt;
         if (endWar) {
-            evt = new WarEndEvent(slWar, Collections.singleton(empire));
+            evt = new WarEndEvent(war, Collections.singleton(empire));
         } else {
-            evt = new WarEmpireLeaveEvent(slWar, Collections.singleton(empire));
+            evt = new WarEmpireLeaveEvent(war, Collections.singleton(empire));
         }
         EventManager.handleEvent(evt);
         return evt.isCancelled();
     }
 
-    public boolean leaveWar(@NotNull Empire empire, @NotNull IvyWar war, boolean silent) {
+    public boolean leaveWar(@NotNull ActiveEmpire empire, @NotNull IvyWar war, boolean silent) {
         if (war.allAggressorsView.contains(empire)) {
             if (war.allAggressorsView.size() == 1) {
                 if (!silent && this.handEmpireLeaveEvent(empire, war, true)) {
                     return false;
                 }
-                this.reverseLookup.remove(war);
                 for (Empire defender : war.allDefendersView) {
                     this.removeFromWar(defender, war);
                 }
@@ -180,7 +154,7 @@ public class IvyWarContainer {
                 return false;
             }
             if (war.getInitiator() == empire) {
-                for (Empire attacker : war.allAggressorsView) {
+                for (ActiveEmpire attacker : war.allAggressorsView) {
                     if (attacker != empire) {
                         war.setInitiator(attacker);
                         break;
@@ -195,7 +169,6 @@ public class IvyWarContainer {
                 if (!silent && this.handEmpireLeaveEvent(empire, war, true)) {
                     return false;
                 }
-                this.reverseLookup.remove(war);
                 for (Empire aggressor : war.allAggressorsView) {
                     this.removeFromWar(aggressor, war);
                 }
@@ -207,7 +180,7 @@ public class IvyWarContainer {
                 return false;
             }
             if (war.getTarget() == empire) {
-                for (Empire defender : war.allDefendersView) {
+                for (ActiveEmpire defender : war.allDefendersView) {
                     if (defender != empire) {
                         war.setTarget(defender);
                         break;
@@ -239,17 +212,7 @@ public class IvyWarContainer {
         }
     }
 
-    @NotNull
-    public War toSLAPIWar(@NotNull IvyWar war) {
-        War slWar = this.reverseLookup.get(war);
-        if (slWar == null) {
-            throw new IllegalStateException("No SLAPI `War` instance registered for IvyH `IvyWar` instance " + war);
-        }
-        return slWar;
-    }
-
     public synchronized void unloadWar(@NotNull IvyWar war) {
-        this.reverseLookup.remove(war);
         this.allWars.remove(war);
         for (Empire e : war.allAggressorsView) {
             Set<IvyWar> wars = this.wars.get(e.getUID());
@@ -289,17 +252,10 @@ public class IvyWarContainer {
 
     public synchronized void apply(@NotNull IvyWarContainerState state) {
         this.allWars.clear();
-        this.reverseLookup.clear();
         this.wars.clear();
-        this.clearWarsUnsafely();
         for (WarState war : state.wars) {
-            snoddasmannen.galimulator.War galimWar = WarCallbacks.createInstance();
-            if (galimWar == null) {
-                LoggerFactory.getLogger(IvyWarContainer.class).error("Unable to create `War` instance. Dropping war.");
-                continue;
-            }
-            Empire initiator = Galimulator.getEmpireByUID(war.initiator);
-            Empire target = Galimulator.getEmpireByUID(war.target);
+            ActiveEmpire initiator = Galimulator.getEmpireByUID(war.initiator);
+            ActiveEmpire target = Galimulator.getEmpireByUID(war.target);
             if (initiator == null) {
                 LoggerFactory.getLogger(IvyWarContainer.class).error("Unknown empire UID {}. Dropping war as there is no initiator.", war.initiator);
                 continue;
@@ -311,12 +267,9 @@ public class IvyWarContainer {
             IvyWar ivyWar = new IvyWar(war.warStart, initiator, target);
             ivyWar.setAggressorScore(war.aggressorScore);
             ivyWar.setLastActionYear(war.lastActionYear);
-            ((IvyWarAccess) galimWar).setWarHandler(ivyWar);
-            this.addWarUnsafely((War) galimWar);
             this.allWars.add(ivyWar);
-            this.reverseLookup.put(ivyWar, (War) galimWar);
             for (int aggressor : war.aggressors) {
-                Empire e = Galimulator.getEmpireByUID(aggressor);
+                ActiveEmpire e = Galimulator.getEmpireByUID(aggressor);
                 if (e != null) {
                     ivyWar.addAggressor(e);
                     this.wars.computeIfAbsent(aggressor, (ignore) -> ConcurrentHashMap.newKeySet()).add(ivyWar);
@@ -325,7 +278,7 @@ public class IvyWarContainer {
                 }
             }
             for (int defender : war.defenders) {
-                Empire e = Galimulator.getEmpireByUID(defender);
+                ActiveEmpire e = Galimulator.getEmpireByUID(defender);
                 if (e != null) {
                     ivyWar.addDefender(e);
                     this.wars.computeIfAbsent(defender, (ignore) -> ConcurrentHashMap.newKeySet()).add(ivyWar);
@@ -346,7 +299,7 @@ public class IvyWarContainer {
             }
             int[] aggressors = new int[war.allAggressorsView.size()];
             int[] defenders = new int[war.allDefendersView.size()];
-            Iterator<Empire> it = war.allAggressorsView.iterator();
+            Iterator<ActiveEmpire> it = war.allAggressorsView.iterator();
             for (int i = 0; it.hasNext(); i++) {
                 aggressors[i] = it.next().getUID();
             }

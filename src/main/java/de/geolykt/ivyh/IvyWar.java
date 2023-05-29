@@ -1,5 +1,6 @@
 package de.geolykt.ivyh;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
@@ -13,31 +14,32 @@ import de.geolykt.starloader.api.Galimulator;
 import de.geolykt.starloader.api.empire.ActiveEmpire;
 import de.geolykt.starloader.api.empire.Alliance;
 import de.geolykt.starloader.api.empire.Empire;
+import de.geolykt.starloader.api.empire.War;
 
 import snoddasmannen.galimulator.Space;
 
-public class IvyWar {
+public class IvyWar implements War {
 
     private final int startYear;
     private int lastActionYear;
     private int aggressorScore;
 
     @NotNull
-    private Empire initiator;
+    private ActiveEmpire initiator;
     @NotNull
-    private Empire target;
+    private ActiveEmpire target;
 
     @NotNull
-    private final Set<@NotNull Empire> allAggressors = ConcurrentHashMap.newKeySet();
+    private final Set<@NotNull ActiveEmpire> allAggressors = ConcurrentHashMap.newKeySet();
     @NotNull
-    public final Set<@NotNull Empire> allAggressorsView = Collections.unmodifiableSet(this.allAggressors);
+    public final Set<@NotNull ActiveEmpire> allAggressorsView = Collections.unmodifiableSet(this.allAggressors);
     @NotNull
-    private final Set<@NotNull Empire> allDefenders = ConcurrentHashMap.newKeySet();
+    private final Set<@NotNull ActiveEmpire> allDefenders = ConcurrentHashMap.newKeySet();
     @NotNull
-    public final Set<@NotNull Empire> allDefendersView = Collections.unmodifiableSet(this.allDefenders);
+    public final Set<@NotNull ActiveEmpire> allDefendersView = Collections.unmodifiableSet(this.allDefenders);
     private boolean unloaded;
 
-    public IvyWar(int startYear, @NotNull Empire initiator, @NotNull Empire target) {
+    public IvyWar(int startYear, @NotNull ActiveEmpire initiator, @NotNull ActiveEmpire target) {
         this.startYear = this.lastActionYear = startYear;
         this.initiator = Objects.requireNonNull(initiator);
         this.target = Objects.requireNonNull(target);
@@ -45,21 +47,21 @@ public class IvyWar {
         this.allDefenders.add(target);
     }
 
-    public void addAggressor(@NotNull Empire e) {
+    public void addAggressor(@NotNull ActiveEmpire e) {
         if (this.unloaded) {
             throw new IllegalStateException("IvyWar instance invalidated and may not be mutated further");
         }
         this.allAggressors.add(e);
     }
 
-    public void addDefender(@NotNull Empire e) {
+    public void addDefender(@NotNull ActiveEmpire e) {
         if (this.unloaded) {
             throw new IllegalStateException("IvyWar instance invalidated and may not be mutated further");
         }
         this.allDefenders.add(e);
     }
 
-    public void leave(@NotNull Empire e) {
+    public void leave(@NotNull ActiveEmpire e) {
         if (this.unloaded) {
             throw new IllegalStateException("IvyWar instance invalidated and may not be mutated further");
         }
@@ -71,14 +73,14 @@ public class IvyWar {
         }
     }
 
-    public void setInitiator(@NotNull Empire initiator) {
+    public void setInitiator(@NotNull ActiveEmpire initiator) {
         if (this.unloaded) {
             throw new IllegalStateException("IvyWar instance invalidated and may not be mutated further");
         }
         this.initiator = Objects.requireNonNull(initiator, "Initiator may not be null!");
     }
 
-    public void setTarget(@NotNull Empire target) {
+    public void setTarget(@NotNull ActiveEmpire target) {
         if (this.unloaded) {
             throw new IllegalStateException("IvyWar instance invalidated and may not be mutated further");
         }
@@ -86,12 +88,12 @@ public class IvyWar {
     }
 
     @NotNull
-    public Empire getInitiator() {
+    public ActiveEmpire getInitiator() {
         return this.initiator;
     }
 
     @NotNull
-    public Empire getTarget() {
+    public ActiveEmpire getTarget() {
         return this.target;
     }
 
@@ -201,5 +203,67 @@ public class IvyWar {
 
     public void setAggressorScore(int aggressorScore) {
         this.aggressorScore = aggressorScore;
+    }
+
+    public void incrementScore(@NotNull ActiveEmpire e) {
+        if (this.allAggressors.contains(e)) {
+            this.incrementAggressorScore();
+        } else if (this.allDefenders.contains(e)) {
+            this.decrementAggressorScore();
+        } else {
+            throw new IllegalStateException("Empire " + e.getUID() + "(" + e.getEmpireName() + ") does not participate in war " + this.getDisplayName());
+        }
+    }
+
+    @Override
+    @NotNull
+    public Collection<@NotNull ActiveEmpire> getAggressorParty() {
+        return this.allAggressorsView;
+    }
+
+    @Override
+    public int getDateOfLastAction() {
+        return this.lastActionYear;
+    }
+
+    @Override
+    @NotNull
+    public Collection<@NotNull ActiveEmpire> getDefenderParty() {
+        return this.allDefendersView;
+    }
+
+    @Override
+    public int getDestroyedShips() {
+        return 0; // Not implemented
+    }
+
+    @Override
+    public int getStarDelta() {
+        return this.aggressorScore;
+    }
+
+    @Override
+    public int getStartDate() {
+        return this.startYear;
+    }
+
+    @Override
+    public void noteShipDestruction() {
+        // NOP (Not implemented)
+    }
+
+    @Override
+    public void noteStarChange(@NotNull ActiveEmpire empire) throws IllegalArgumentException {
+        this.incrementScore(empire);
+    }
+
+    @Override
+    public void setDestroyedShips(int count) {
+        // NOP (Not implemented)
+    }
+
+    @Override
+    public void setStarDelta(int count) {
+        this.aggressorScore = count;
     }
 }

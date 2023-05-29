@@ -41,7 +41,7 @@ deployMods {
 dependencies {
     dependencyMods "de.geolykt:starloader-api:2.0.0-SNAPSHOT"
     devRuntime "de.geolykt.starloader:launcher:4.0.0-20230527"
-    compileOnly "de.geolykt.starloader:micromixin-annotations:0.0.1-SNAPSHOT"
+    //compileOnly "de.geolykt.starloader:micromixin-annotations:0.0.1-SNAPSHOT"
     compileOnly "de.geolykt.starloader:starplane-annotations:1.0.0"
     compileOnlyApi "org.jetbrains:annotations:24.0.1"
 }
